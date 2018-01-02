@@ -41,7 +41,7 @@ class TwoLayerNet(object):
     self.params['W2'] = std * np.random.randn(hidden_size, output_size)
     self.params['b2'] = np.zeros(output_size)
 
-  def loss(self, X, y=None, reg=0.0):
+  def loss(self, X, y=None, reg=0.0, drop_out=False, drop_out_prob=0.5):
     """
     Compute the loss and gradients for a two layer fully connected neural
     network.
@@ -68,6 +68,7 @@ class TwoLayerNet(object):
     W1, b1 = self.params['W1'], self.params['b1']
     W2, b2 = self.params['W2'], self.params['b2']
     N, D = X.shape
+    H = W1.shape[1]
 
     # Compute the forward pass
     scores = None
@@ -78,7 +79,14 @@ class TwoLayerNet(object):
     #############################################################################
     linear_hidden = np.dot(X, W1) + b1
     hidden = np.maximum((linear_hidden), 0)
+    
+    # Drop out some of the nodes in the hidden layer
+    if drop_out:
+    	drop_out_indices = np.random.rand(*hidden.shape) < drop_out_prob 
+    	hidden = hidden * drop_out_indices / drop_out_prob
+
     scores = np.dot(hidden, W2) + b2
+
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -185,7 +193,7 @@ class TwoLayerNet(object):
       #########################################################################
 
       # Compute loss and gradients using the current minibatch
-      loss, grads = self.loss(X_batch, y=y_batch, reg=reg)
+      loss, grads = self.loss(X_batch, y=y_batch, reg=reg, drop_out=True)
       loss_history.append(loss)
 
       #########################################################################
