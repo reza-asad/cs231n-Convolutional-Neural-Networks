@@ -77,10 +77,10 @@ class TwoLayerNet(object):
           names to gradients of the loss with respect to those parameters.
         """
         scores = None
-        W1 = self.params['W1'].copy()
-        W2 = self.params['W2'].copy()
-        b1 = self.params['b1'].copy()
-        b2 = self.params['b2'].copy()
+        W1 = self.params['W1']
+        W2 = self.params['W2']
+        b1 = self.params['b1']
+        b2 = self.params['b2']
         ############################################################################
         # TODO: Implement the forward pass for the two-layer net, computing the    #
         # class scores for X and storing them in the scores variable.              #
@@ -117,7 +117,6 @@ class TwoLayerNet(object):
         dx, dw1, db1 = affine_relu_backward(dhidden_score, first_layer_cache)
         grads['W1'] += dw1
         grads['b1'] = db1
-        # print(grads['W2'])
 
         # ############################################################################
         #                             END OF YOUR CODE                             #
@@ -184,7 +183,13 @@ class FullyConnectedNet(object):
         # beta2, etc. Scale parameters should be initialized to one and shift      #
         # parameters should be initialized to zero.                                #
         ############################################################################
-        pass
+        self.params['W1'] = np.random.randn(input_dim, hidden_dims[0]) * weight_scale
+        self.params['b1'] = np.zeros(hidden_dims[0])
+        for i in range(1, len(hidden_dims)):
+            self.params['W{}'.format(i+1)] = np.random.randn(hidden_dims[i-1], hidden_dims[i]) * weight_scale
+            self.params['b{}'.format(i+1)] = np.zeros(hidden_dims[i])
+        self.params['W{}'.format(i+2)] = np.random.randn(hidden_dims[i], num_classes) * weight_scale
+        self.params['b{}'.format(i+2)] = np.zeros(num_classes)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
