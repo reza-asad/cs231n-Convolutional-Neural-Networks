@@ -76,7 +76,6 @@ class TwoLayerNet(object):
         - grads: Dictionary with the same keys as self.params, mapping parameter
           names to gradients of the loss with respect to those parameters.
         """
-        scores = None
         W1 = self.params['W1']
         W2 = self.params['W2']
         b1 = self.params['b1']
@@ -107,7 +106,7 @@ class TwoLayerNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         loss, dscores = softmax_loss(scores, y)
-        loss += 0.5 * self.reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+        loss += 0.5 * self.reg * (np.sum(W1**2) + np.sum(W2**2))
 
         grads['W1'], grads['W2'] = self.reg * W1 , self.reg * W2
         dhidden_score, dw2, db2 = affine_relu_backward(dscores, second_layer_cache)
@@ -232,7 +231,6 @@ class FullyConnectedNet(object):
             for bn_param in self.bn_params:
                 bn_param['mode'] = mode
 
-        scores = None
         ############################################################################
         # TODO: Implement the forward pass for the fully-connected net, computing  #
         # the class scores for X and storing them in the scores variable.          #
@@ -285,7 +283,7 @@ class FullyConnectedNet(object):
         loss, dscores = softmax_loss(scores, y)
         for param, val in self.params.items():
             if param[0] == 'W':
-                loss += 0.5 * self.reg * np.sum(val * val)
+                loss += 0.5 * self.reg * np.sum(val**2)
                 grads[param] = self.reg * val
 
         for i in range(self.num_layers, 0, -1):
