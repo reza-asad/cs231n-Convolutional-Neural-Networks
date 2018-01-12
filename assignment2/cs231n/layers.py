@@ -253,37 +253,7 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
 
     return dx, dgamma, dbeta
-
-
-def batchnorm_backward_alt(dout, cache):
-    """
-    Alternative backward pass for batch normalization.
-
-    For this implementation you should work out the derivatives for the batch
-    normalizaton backward pass on paper and simplify as much as possible. You
-    should be able to derive a simple expression for the backward pass.
-
-    Note: This implementation should expect to receive the same cache variable
-    as batchnorm_backward, but might not use all of the values in the cache.
-
-    Inputs / outputs: Same as batchnorm_backward
-    """
-    dx, dgamma, dbeta = None, None, None
-    ###########################################################################
-    # TODO: Implement the backward pass for batch normalization. Store the    #
-    # results in the dx, dgamma, and dbeta variables.                         #
-    #                                                                         #
-    # After computing the gradient with respect to the centered inputs, you   #
-    # should be able to compute gradients with respect to the inputs in a     #
-    # single statement; our implementation fits on a single 80-character line.#
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
-
-    return dx, dgamma, dbeta
-
+    
 
 def dropout_forward(x, dropout_param):
     """

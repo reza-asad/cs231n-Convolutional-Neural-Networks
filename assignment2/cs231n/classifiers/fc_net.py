@@ -182,11 +182,18 @@ class FullyConnectedNet(object):
         # beta2, etc. Scale parameters should be initialized to one and shift      #
         # parameters should be initialized to zero.                                #
         ############################################################################
-        hidden_dims.append(num_classes)
         hidden_dims = [input_dim] + hidden_dims
         for i in range(1, len(hidden_dims)):
             self.params['W{}'.format(i)] = np.random.randn(hidden_dims[i-1], hidden_dims[i]) * weight_scale
             self.params['b{}'.format(i)] = np.zeros(hidden_dims[i])
+            if self.use_batchnorm:
+                self.params['gamma{}'.format(i)] = np.ones(hidden_dims[i])
+                self.params['beta{}'.format(i)] = np.zeros(hidden_dims[i])
+        
+        # Weights and bias for the last layer
+        i += 1
+        self.params['W{}'.format(i)] = np.random.randn(hidden_dims[i-1], num_classes) * weight_scale
+        self.params['b{}'.format(i)] = np.zeros(num_classes)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -251,10 +258,14 @@ class FullyConnectedNet(object):
             # On the last layer you do not need RELU
             if i == self.num_layers:
                 scores, cache = affine_forward(input_layer, w, b)
+            elif self.use_batchnorm:
+                gamma = self.params['gamma{}'.format(i)]
+                beta = self.params['beta{}'.format(i)]
+                bn_param = self.bn_params[i-1]
+                output, cache = affine_bn_relu_forward(input_layer, w, b, gamma, beta, bn_param)
             else:
                 output, cache = affine_relu_forward(input_layer, w, b)
-                input_layer = output
-
+            input_layer = output
             caches.append(cache)
             
 
@@ -293,6 +304,12 @@ class FullyConnectedNet(object):
             # The backprop on last layer does not have RELU
             if i == self.num_layers:
                 dhidden_score, dw, db = affine_backward(dscores, cache)
+            elif self.use_batchnorm:
+                gamma = 'gamma{}'.format(i)
+                beta = 'beta{}'.format(i)
+                dhidden_score, dw, db, dgamma, dbeta = affine_bn_relu_backward(dhidden_score, cache)
+                grads[gamma] = dgamma
+                grads[beta] = dbeta
             else:
                 dhidden_score, dw, db = affine_relu_backward(dhidden_score, cache)
             grads[W] += dw
