@@ -354,12 +354,37 @@ def conv_forward_naive(x, w, b, conv_param):
       W' = 1 + (W + 2 * pad - WW) / stride
     - cache: (x, w, b, conv_param)
     """
-    out = None
+    stride, pad = conv_param['stride'], conv_param['pad']
+    N, C, H, W = x.shape
+    F, _, HH, WW = w.shape
+    H_prime = 1 + (H + 2 * pad - HH) / stride
+    W_prime = 1 + (W + 2 * pad - WW) / stride
+    out = np.ndarray(shape=(N, F, H_prime, W_prime))
     ###########################################################################
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    pass
+    # Zeor pad the input
+    x = np.pad(x, [(0, 0), (0, 0), (pad, pad), (pad, pad)], 'constant')
+    h_prime, w_prime = 0, 0
+    height, weight = 0, 0
+    D = np.prod((C, HH, WW))
+    while h_prime < H_prime:
+        while w_prime < W_prime:
+            # Flatten the subset of the input that is going to be convolved
+            input_flatten = x[:, :, height : height+HH, weight : weight+WW].reshape(N, D)
+            weights_flatten = w.reshape(F, D).T
+            neurons = np.dot(input_flatten, weights_flatten) + b
+            out[:, :, h_prime, w_prime] = neurons
+            # Update the weight parameters
+            weight += stride
+            w_prime += 1
+        # Update the height parameters
+        height += stride
+        h_prime += 1
+        # Reset parameters for weight
+        w_prime, weight = 0, 0
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
