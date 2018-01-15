@@ -262,9 +262,11 @@ class FullyConnectedNet(object):
                 gamma = self.params['gamma{}'.format(i)]
                 beta = self.params['beta{}'.format(i)]
                 bn_param = self.bn_params[i-1]
-                output, cache = affine_bn_relu_forward(input_layer, w, b, gamma, beta, bn_param)
+                output, cache = affine_bn_relu_forward(input_layer, w, b, gamma, beta, bn_param, 
+                                                       dropout=self.use_dropout, dropout_param=self.dropout_param)
             else:
-                output, cache = affine_relu_forward(input_layer, w, b)
+                output, cache = affine_relu_forward(input_layer, w, b, dropout=self.use_dropout,
+                                                    dropout_param=self.dropout_param)
             input_layer = output
             caches.append(cache)
             
@@ -307,11 +309,12 @@ class FullyConnectedNet(object):
             elif self.use_batchnorm:
                 gamma = 'gamma{}'.format(i)
                 beta = 'beta{}'.format(i)
-                dhidden_score, dw, db, dgamma, dbeta = affine_bn_relu_backward(dhidden_score, cache)
+                dhidden_score, dw, db, dgamma, dbeta = affine_bn_relu_backward(dhidden_score, cache, 
+                                                                               dropout = self.use_dropout)
                 grads[gamma] = dgamma
                 grads[beta] = dbeta
             else:
-                dhidden_score, dw, db = affine_relu_backward(dhidden_score, cache)
+                dhidden_score, dw, db = affine_relu_backward(dhidden_score, cache, dropout= self.use_dropout)
             grads[W] += dw
             grads[b] = db
         ############################################################################

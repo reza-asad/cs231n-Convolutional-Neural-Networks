@@ -3,7 +3,7 @@ from cs231n.layers import *
 from cs231n.fast_layers import *
 
 
-def affine_relu_forward(x, w, b):
+def affine_relu_forward(x, w, b, dropout=False, dropout_param=None):
     """
     Convenience layer that perorms an affine transform followed by a ReLU
 
@@ -17,28 +17,44 @@ def affine_relu_forward(x, w, b):
     """
     a, fc_cache = affine_forward(x, w, b)
     out, relu_cache = relu_forward(a)
-    cache = (fc_cache, relu_cache)
+    if dropout:
+        out, dropout_cache = dropout_forward(out, dropout_param)
+        cache = (fc_cache, relu_cache, dropout_cache)
+    else:
+        cache = (fc_cache, relu_cache)
     return out, cache
 
 
-def affine_relu_backward(dout, cache):
+def affine_relu_backward(dout, cache, dropout=False):
     """
     Backward pass for the affine-relu convenience layer
     """
-    fc_cache, relu_cache = cache
+    if dropout:
+        fc_cache, relu_cache, dropout_cache = cache
+        dout = dropout_backward(dout, dropout_cache)
+    else:
+        fc_cache, relu_cache = cache
     da = relu_backward(dout, relu_cache)
     dx, dw, db = affine_backward(da, fc_cache)
     return dx, dw, db
 
-def affine_bn_relu_forward(x, w, b, gamma, beta, bn_param):
+def affine_bn_relu_forward(x, w, b, gamma, beta, bn_param, dropout=False, dropout_param=None):
     a, fc_cache = affine_forward(x, w, b)
     b, bn_cache = batchnorm_forward(a, gamma, beta, bn_param)
     out, relu_cache = relu_forward(b)
-    cache = (fc_cache, bn_cache, relu_cache)
+    if dropout:
+        out, dropout_cache = dropout_forward(out, dropout_param)
+        cache = (fc_cache, bn_cache, relu_cache, dropout_cache)
+    else:
+        cache = (fc_cache, bn_cache, relu_cache)
     return out, cache
 
-def affine_bn_relu_backward(dout, cache):
-    fc_cache, bn_cache, relu_cache = cache
+def affine_bn_relu_backward(dout, cache, dropout):
+    if dropout:
+        fc_cache, bn_cache, relu_cache, dropout_cache = cache    
+        out = dropout_backward(dout, dropout_cache)
+    else:
+        fc_cache, bn_cache, relu_cache = cache
     da = relu_backward(dout, relu_cache)
     dx, dgamma, dbeta = batchnorm_backward(da, bn_cache)
     dx, dw, db = affine_backward(dx, fc_cache)

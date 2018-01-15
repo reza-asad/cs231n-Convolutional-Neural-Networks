@@ -136,10 +136,10 @@ def adam(x, dx, config=None):
     # stored in config.                                                       #
     ###########################################################################
     config['m'] = config['beta1'] * config['m'] + (1 - config['beta1']) * dx
-    config['m'] = config['m'] / (1 - config['beta1']**config['t'])
+    #config['m'] = config['m'] / (1 - config['beta1']**config['t'])
 
     config['v'] = config['beta2'] * config['v'] + (1 - config['beta2']) * dx**2
-    config['v'] = config['v'] / (1- config['beta2']**config['t'])
+    #config['v'] = config['v'] / (1- config['beta2']**config['t'])
 
     next_x = x - config['learning_rate'] * config['m'] / (np.sqrt(config['v']) + config['epsilon'])
     config['t'] += 1
