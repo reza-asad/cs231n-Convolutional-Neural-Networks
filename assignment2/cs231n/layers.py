@@ -357,9 +357,14 @@ def conv_forward_naive(x, w, b, conv_param):
     stride, pad = conv_param['stride'], conv_param['pad']
     N, C, H, W = x.shape
     F, _, HH, WW = w.shape
+
+    # Check dimensions
+    assert (W + 2 * pad - WW) % stride == 0, 'width does not work'
+    assert (H + 2 * pad - HH) % stride == 0, 'height does not work'
+
     H_prime = 1 + (H + 2 * pad - HH) / stride
     W_prime = 1 + (W + 2 * pad - WW) / stride
-    out = np.zeros(shape=(N, F, H_prime, W_prime))
+    out = np.zeros(shape=(N, F, H_prime, W_prime), dtype=x.dtype)
     ###########################################################################
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
@@ -411,8 +416,8 @@ def conv_backward_naive(dout, cache):
     F, _, HH, WW = w.shape
     H_prime = 1 + (H - HH) / stride
     W_prime = 1 + (W - WW) / stride
-    dx = np.zeros(shape=(N, C, H, W))
-    dw = np.zeros(shape=(F, C, HH, WW))
+    dx = np.zeros(shape=(N, C, H, W), dtype=x.dtype)
+    dw = np.zeros(shape=(F, C, HH, WW), dtype=x.dtype)
     db = np.zeros(F)
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
@@ -423,7 +428,7 @@ def conv_backward_naive(dout, cache):
     weights_flatten = w.reshape(F, D)
     while h_prime < H_prime:
         while w_prime < W_prime:
-            # break dout in to chunks of dimension (N, F)
+            # Break dout in to chunks of dimension (N, F)
             dout_chunck = dout[:, :, h_prime, w_prime]
             
             # dx_chunk is the upstream gradient in chunks multiplied by the local gradient and  
@@ -474,9 +479,14 @@ def max_pool_forward_naive(x, pool_param):
     N, C, H, W = x.shape
     p_height, p_width = pool_param['pool_height'], pool_param['pool_width']
     stride = pool_param['stride']
+
+    # Check dimensions
+    assert (W - p_width) % stride == 0, 'width does not work'
+    assert (H - p_height) % stride == 0, 'height does not work'
+
     H_prime = 1 + (H - p_height) / stride
     W_prime = 1 + (W - p_width) / stride
-    out = np.zeros(shape=(N, C, H_prime, W_prime))
+    out = np.zeros(shape=(N, C, H_prime, W_prime), dtype=x.dtype)
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
@@ -516,11 +526,44 @@ def max_pool_backward_naive(dout, cache):
     Returns:
     - dx: Gradient with respect to x
     """
-    dx = None
+    x, pool_param = cache
+    N, C, H, W = x.shape
+    p_height, p_width = pool_param['pool_height'], pool_param['pool_width']
+    stride = pool_param['stride']
+    H_prime = 1 + (H - p_height) / stride
+    W_prime = 1 + (W - p_width) / stride
+    dx = np.zeros(shape=(N, C, H, W), dtype=x.dtype)
+
     ###########################################################################
     # TODO: Implement the max pooling backward pass                           #
     ###########################################################################
-    pass
+    h_prime, w_prime = 0 ,0
+    height, width = 0, 0
+    while h_prime < H_prime:
+        while w_prime < W_prime:
+            # Break the upstream gradient into chunks of size (N, C)
+            dout_chunk = dout[:, :, h_prime, w_prime]
+
+            # Find the local gradient
+            x_chunk = x[:, :, height : height+p_height, width : width+p_width]
+            local_gradient = (x_chunk == x_chunk.max(axis=(2,3), keepdims=True)).astype(float)
+
+            dout_chunk = np.expand_dims(dout_chunk, axis=2)
+            dout_chunk = np.expand_dims(dout_chunk, axis=3)
+            dout_chunk = local_gradient * dout_chunk
+            dx[:, :, height : height+p_height, width : width+p_width] += dout_chunk
+
+            # Update the width
+            w_prime += 1
+            width += stride
+
+        # Update the height
+        h_prime += 1
+        height += stride
+
+        # Reset the width
+        w_prime, width = 0, 0
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
