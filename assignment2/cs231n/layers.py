@@ -367,23 +367,23 @@ def conv_forward_naive(x, w, b, conv_param):
     # Zeor pad the input
     x = np.pad(x, [(0, 0), (0, 0), (pad, pad), (pad, pad)], 'constant')
     h_prime, w_prime = 0, 0
-    height, weight = 0, 0
+    height, width = 0, 0
     D = np.prod((C, HH, WW))
     weights_flatten = w.reshape(F, D).T
     while h_prime < H_prime:
         while w_prime < W_prime:
             # Flatten the subset of the input that is going to be convolved
-            input_flatten = x[:, :, height : height+HH, weight : weight+WW].reshape(N, D)
+            input_flatten = x[:, :, height : height+HH, width : width+WW].reshape(N, D)
             neurons = np.dot(input_flatten, weights_flatten) + b
             out[:, :, h_prime, w_prime] = neurons
             # Update the weight parameters
-            weight += stride
+            width += stride
             w_prime += 1
         # Update the height parameters
         height += stride
         h_prime += 1
         # Reset parameters for weight
-        w_prime, weight = 0, 0
+        w_prime, width = 0, 0
 
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -418,7 +418,7 @@ def conv_backward_naive(dout, cache):
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
     h_prime, w_prime = 0, 0
-    height, weight = 0, 0
+    height, width = 0, 0
     D = np.prod((C, HH, WW))
     weights_flatten = w.reshape(F, D)
     while h_prime < H_prime:
@@ -429,25 +429,25 @@ def conv_backward_naive(dout, cache):
             # dx_chunk is the upstream gradient in chunks multiplied by the local gradient and  
             # has dimension (N, D)
             dx_chunk = np.dot(dout_chunck, weights_flatten)
-            dx[:, :, height : height+HH, weight : weight+WW] += dx_chunk.reshape((N, C, HH, WW))
+            dx[:, :, height : height+HH, width : width+WW] += dx_chunk.reshape((N, C, HH, WW))
 
             # dw_chunk is the upstream gradient in chunks multiplied by the local gradient and
             # has dimension (F, D)
-            x_chunk = x[:, :, height : height+HH, weight : weight+WW].reshape((N, D))
+            x_chunk = x[:, :, height : height+HH, width : width+WW].reshape((N, D))
             dw_chunk = np.dot(dout_chunck.T, x_chunk).reshape((F, C, HH, WW))
             dw += dw_chunk
 
             # Compute db
             db += np.sum(dout_chunck, axis=0)
-            
+
             # Update the weight parameters
-            weight += stride
+            width += stride
             w_prime += 1
         # Update the height parameters
         height += stride
         h_prime += 1
         # Reset parameters for weight
-        w_prime, weight = 0, 0
+        w_prime, width = 0, 0
     # Remove the zero pads
     dx = dx[:, :, pad:-pad, pad:-pad]
     ###########################################################################
@@ -471,11 +471,33 @@ def max_pool_forward_naive(x, pool_param):
     - out: Output data
     - cache: (x, pool_param)
     """
-    out = None
+    N, C, H, W = x.shape
+    p_height, p_width = pool_param['pool_height'], pool_param['pool_width']
+    stride = pool_param['stride']
+    H_prime = 1 + (H - p_height) / stride
+    W_prime = 1 + (W - p_width) / stride
+    out = np.zeros(shape=(N, C, H_prime, W_prime))
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
-    pass
+    h_prime, w_prime = 0 ,0
+    height, width = 0, 0
+    while h_prime < H_prime:
+        while w_prime < W_prime:
+            # Find the maximum along the Height and Width dimension only
+            max_chunk = np.max(x[:, :, height : height+p_height, width : width+p_width], 
+                               axis=(2, 3))
+            out[:, :, h_prime, w_prime] = max_chunk
+            # Update the width
+            w_prime += 1
+            width += stride
+
+        # Update the height
+        h_prime += 1
+        height += stride
+
+        # Reset the width
+        w_prime, width = 0, 0
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
