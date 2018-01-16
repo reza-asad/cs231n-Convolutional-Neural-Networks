@@ -359,7 +359,7 @@ def conv_forward_naive(x, w, b, conv_param):
     F, _, HH, WW = w.shape
     H_prime = 1 + (H + 2 * pad - HH) / stride
     W_prime = 1 + (W + 2 * pad - WW) / stride
-    out = np.ndarray(shape=(N, F, H_prime, W_prime))
+    out = np.zeros(shape=(N, F, H_prime, W_prime))
     ###########################################################################
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
@@ -369,11 +369,11 @@ def conv_forward_naive(x, w, b, conv_param):
     h_prime, w_prime = 0, 0
     height, weight = 0, 0
     D = np.prod((C, HH, WW))
+    weights_flatten = w.reshape(F, D).T
     while h_prime < H_prime:
         while w_prime < W_prime:
             # Flatten the subset of the input that is going to be convolved
             input_flatten = x[:, :, height : height+HH, weight : weight+WW].reshape(N, D)
-            weights_flatten = w.reshape(F, D).T
             neurons = np.dot(input_flatten, weights_flatten) + b
             out[:, :, h_prime, w_prime] = neurons
             # Update the weight parameters
@@ -405,11 +405,51 @@ def conv_backward_naive(dout, cache):
     - dw: Gradient with respect to w
     - db: Gradient with respect to b
     """
-    dx, dw, db = None, None, None
+    x, w, b, conv_param = cache
+    stride, pad = conv_param['stride'], conv_param['pad']
+    N, C, H, W = x.shape
+    F, _, HH, WW = w.shape
+    H_prime = 1 + (H - HH) / stride
+    W_prime = 1 + (W - WW) / stride
+    dx = np.zeros(shape=(N, C, H, W))
+    dw = np.zeros(shape=(F, C, HH, WW))
+    db = np.zeros(F)
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    h_prime, w_prime = 0, 0
+    height, weight = 0, 0
+    D = np.prod((C, HH, WW))
+    weights_flatten = w.reshape(F, D)
+    while h_prime < H_prime:
+        while w_prime < W_prime:
+            # break dout in to chunks of dimension (N, F)
+            dout_chunck = dout[:, :, h_prime, w_prime]
+            
+            # dx_chunk is the upstream gradient in chunks multiplied by the local gradient and  
+            # has dimension (N, D)
+            dx_chunk = np.dot(dout_chunck, weights_flatten)
+            dx[:, :, height : height+HH, weight : weight+WW] += dx_chunk.reshape((N, C, HH, WW))
+
+            # dw_chunk is the upstream gradient in chunks multiplied by the local gradient and
+            # has dimension (F, D)
+            x_chunk = x[:, :, height : height+HH, weight : weight+WW].reshape((N, D))
+            dw_chunk = np.dot(dout_chunck.T, x_chunk).reshape((F, C, HH, WW))
+            dw += dw_chunk
+
+            # Compute db
+            db += np.sum(dout_chunck, axis=0)
+            
+            # Update the weight parameters
+            weight += stride
+            w_prime += 1
+        # Update the height parameters
+        height += stride
+        h_prime += 1
+        # Reset parameters for weight
+        w_prime, weight = 0, 0
+    # Remove the zero pads
+    dx = dx[:, :, pad:-pad, pad:-pad]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
