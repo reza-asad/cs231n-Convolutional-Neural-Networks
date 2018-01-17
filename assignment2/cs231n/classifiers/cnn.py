@@ -231,7 +231,7 @@ class FullyLayerConvNet(object):
 
         """
         self.params={}
-        pass
+        
 
 
         #
