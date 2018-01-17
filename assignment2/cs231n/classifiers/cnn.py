@@ -17,7 +17,7 @@ class ThreeLayerConvNet(object):
     channels.
     """
 
-    def __init__(self, input_dim=(3, 32, 32), num_filters=32, filter_size=7,
+    def __init__(self, dropout=0, input_dim=(3, 32, 32), num_filters=32, filter_size=7,
                  hidden_dim=100, num_classes=10, weight_scale=1e-3, reg=0.0,
                  dtype=np.float32):
         """
@@ -34,6 +34,7 @@ class ThreeLayerConvNet(object):
         - reg: Scalar giving L2 regularization strength
         - dtype: numpy datatype to use for computation.
         """
+        self.usedropout = dropout > 0
         self.params = {}
         self.reg = reg
         self.dtype = dtype
@@ -62,13 +63,17 @@ class ThreeLayerConvNet(object):
         self.params['W3'] = np.random.randn(hidden_dim, num_classes) * weight_scale
         self.params['b3'] = np.zeros(num_classes)
 
+        # Set dropout parameters if necessary
+        self.dropout_param={}
+        if self.usedropout:
+            self.dropout_param ={'mode':'train', 'p':dropout}
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
-
 
     def loss(self, X, y=None):
         """
@@ -93,7 +98,8 @@ class ThreeLayerConvNet(object):
         # variable.                                                                #
         ############################################################################
         first_layer_scores, first_layer_cache = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param)
-        second_layer_scores, second_layer_cache = affine_relu_forward(first_layer_scores, W2, b2)
+        second_layer_scores, second_layer_cache = affine_relu_forward(first_layer_scores, W2, b2, dropout=self.usedropout,
+                                                                      dropout_param=self.dropout_param)
         scores, output_cache = affine_forward(second_layer_scores, W3, b3)
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -121,7 +127,7 @@ class ThreeLayerConvNet(object):
         dx, dw, db = affine_backward(dscores, output_cache)
         grads['W3'] += dw
         grads['b3'] = db
-        dx, dw, db = affine_relu_backward(dx, second_layer_cache)
+        dx, dw, db = affine_relu_backward(dx, second_layer_cache, dropout=self.usedropout)
         grads['W2'] += dw
         grads['b2'] = db
         _, dw, db = conv_relu_pool_backward(dx, first_layer_cache)
