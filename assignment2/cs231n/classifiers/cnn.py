@@ -210,3 +210,51 @@ class ThreeLayerConvNet(object):
         ############################################################################
 
         return loss, grads
+
+class FullyLayerConvNet(object):
+    """
+    A convolutional neural network of any depth followd by a fully connected netwrok.
+
+    The network operates on minibatches of data that have shape (N, C, H, W)
+    consisting of N images, each with height H and width W and with C input
+    channels.
+    """
+
+    def __init__(num_conv_layers, num_hidden_layers, weight_scale=1e-3, reg=0, dropout=0,
+                 use_batch_norm=False):
+        """
+        Initialize the network.
+        Inputs:
+        - num_conv_layers: An array of size H representing the depth of the cnn.
+        - weight_scale: Scalar giving the standard deviation for the randomly 
+          initialized weights.
+
+        """
+        self.params={}
+
+
+        #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
