@@ -58,18 +58,19 @@ class ThreeLayerConvNet(object):
         C, H, W = input_dim
         self.params['W1'] = np.random.randn(num_filters, C, filter_size, filter_size) * weight_scale
         self.params['b1'] = np.zeros(num_filters)
-        #H_pool = (H - self.pool_height) / 2 + 1
-        #W_pool = (W - self.pool_width) / 2 + 1
-        self.params['W2'] = np.random.randn(np.prod((num_filters, H, W)), hidden_dim) * weight_scale
+        H_pool = (H - self.pool_height) / 2 + 1
+        W_pool = (W - self.pool_width) / 2 + 1
+        self.params['W2'] = np.random.randn(np.prod((num_filters, H_pool, W_pool)), hidden_dim) * weight_scale
         self.params['b2'] = np.zeros(hidden_dim)
         self.params['W3'] = np.random.randn(hidden_dim, num_classes) * weight_scale
         self.params['b3'] = np.zeros(num_classes)
 
-        # Create parameters for batch normalization if necessary
-        self.params['gamma1'] = np.ones(num_filters) 
-        self.params['beta1'] = np.zeros(num_filters)
-        self.params['gamma2'] = np.ones(hidden_dim)
-        self.params['beta2'] = np.zeros(hidden_dim)
+        # Initialize the parameters for batch normalization if necessary
+        if self.use_batch_norm:
+            self.params['gamma1'] = np.ones(num_filters) 
+            self.params['beta1'] = np.zeros(num_filters)
+            self.params['gamma2'] = np.ones(hidden_dim)
+            self.params['beta2'] = np.zeros(hidden_dim)
 
         # Set dropout parameters if necessary
         self.dropout_param={}
@@ -126,24 +127,33 @@ class ThreeLayerConvNet(object):
         # computing the class scores for X and storing them in the scores          #
         # variable.                                                                #
         ############################################################################
+
+        # Convolutional layer going forward
         if self.use_batch_norm:
-            first_layer_scores, first_layer_cache = conv_bn_relu_forward(X, W1, b1,
-                                                                         gamma1, beta1, 
-                                                                         conv_param, 
-                                                                         self.bn_params[0])
+            first_layer_scores, first_layer_cache = conv_bn_relu_pool_forward(X, W1, b1,
+                                                                              gamma1, beta1,
+                                                                              conv_param,
+                                                                              self.bn_params[0],
+                                                                              pool_param)
+        else:
+            first_layer_scores, first_layer_cache = conv_relu_pool_forward(X, W1, b1, 
+                                                                           conv_param,
+                                                                           pool_param)
+
+        # Fully connected layers going forward
+        if self.use_batch_norm:    
             second_layer_scores, second_layer_cache = affine_bn_relu_forward(first_layer_scores,
                                                                              W2, b2, gamma2, beta2, 
                                                                              self.bn_params[1], 
                                                                              dropout=self.use_dropout, 
                                                                              dropout_param=self.dropout_param)
         else:
-            first_layer_scores, first_layer_cache = conv_relu_pool_forward(X, W1, b1, conv_param,
-                                                                           pool_param)
             second_layer_scores, second_layer_cache = affine_relu_forward(first_layer_scores, 
                                                                           W2, b2, 
                                                                           dropout=self.use_dropout,
                                                                           dropout_param=self.dropout_param)
 
+        # Output layer going forward
         scores, output_cache = affine_forward(second_layer_scores, W3, b3)
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -168,31 +178,32 @@ class ThreeLayerConvNet(object):
         grads['W2'] = 2 * self.reg * np.sum(W2 * W2)
         grads['W3'] = 2 * self.reg * np.sum(W3 * W3)
 
+        # Output layer going backward
+        dx, dw, db = affine_backward(dscores, output_cache)
+        grads['W3'] += dw
+        grads['b3'] = db
+
+        # Fully connected layers going backward
         if self.use_batch_norm:
-            dx, dw, db = affine_backward(dscores, output_cache)
-            grads['W3'] += dw
-            grads['b3'] = db
             dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, second_layer_cache, dropout=self.use_dropout)
-            grads['W2'] += dw
-            grads['b2'] = db
             grads['gamma2'] = dgamma
             grads['beta2'] = dbeta
-            _, dw, db, dgamma, dbeta = conv_bn_relu_backward(dx, first_layer_cache)
-            grads['W1'] += dw
-            grads['b1'] = db
+
+        else:
+            dx, dw, db = affine_relu_backward(dx, second_layer_cache, dropout=self.use_dropout)
+        grads['W2'] += dw
+        grads['b2'] = db
+
+        # Convolutional layers going backward.
+        if self.use_batch_norm:
+            _, dw, db, dgamma, dbeta = conv_bn_relu_pool_backward(dx, first_layer_cache)
             grads['gamma1'] = dgamma
             grads['beta1'] = dbeta
 
         else:
-            dx, dw, db = affine_backward(dscores, output_cache)
-            grads['W3'] += dw
-            grads['b3'] = db
-            dx, dw, db = affine_relu_backward(dx, second_layer_cache, dropout=self.use_dropout)
-            grads['W2'] += dw
-            grads['b2'] = db
             _, dw, db = conv_relu_pool_backward(dx, first_layer_cache)
-            grads['W1'] += dw
-            grads['b1'] = db
+        grads['W1'] += dw
+        grads['b1'] = db
 
         ############################################################################
         #                             END OF YOUR CODE                             #
