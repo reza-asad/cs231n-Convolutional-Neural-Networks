@@ -223,7 +223,7 @@ class FullyLayerConvNet(object):
     def __init__(num_conv_layers, num_hidden_layers, weight_scale=1e-3, reg=0, dropout=0,
                  use_batch_norm=False):
         """
-        Initialize the network.
+        Initialize the networkgit config user.email.
         Inputs:
         - num_conv_layers: An array of size H representing the depth of the cnn.
         - weight_scale: Scalar giving the standard deviation for the randomly 
@@ -231,6 +231,7 @@ class FullyLayerConvNet(object):
 
         """
         self.params={}
+        pass
 
 
         #
