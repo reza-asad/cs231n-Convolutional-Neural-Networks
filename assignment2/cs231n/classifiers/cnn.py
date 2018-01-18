@@ -171,12 +171,12 @@ class ThreeLayerConvNet(object):
         ############################################################################
         # Compute loss
         loss, dscores = softmax_loss(scores, y)
-        loss += self.reg * (np.sum(W1 * W1) + np.sum(W2 * W2) + np.sum(W3 * W3))
+        loss += 0.5 * self.reg * (np.sum(W1 * W1) + np.sum(W2 * W2) + np.sum(W3 * W3))
         
         # Compute the gradient
-        grads['W1'] = 2 * self.reg * np.sum(W1 * W1)
-        grads['W2'] = 2 * self.reg * np.sum(W2 * W2)
-        grads['W3'] = 2 * self.reg * np.sum(W3 * W3)
+        grads['W1'] = self.reg * W1
+        grads['W2'] = self.reg * W2
+        grads['W3'] = self.reg * W3
 
         # Output layer going backward
         dx, dw, db = affine_backward(dscores, output_cache)
@@ -222,7 +222,7 @@ class FullConvNet(object):
 
     def __init__(self, input_dim=(3,32,32), num_filters=[32], hidden_layers=[100], 
                  num_classes=10 ,filter_size=7, weight_scale=1e-3, reg=0, dropout=0, 
-                 use_batch_norm=False, dtype=np.float32):
+                 use_batch_norm=False, reg=0, dtype=np.float32):
         """
         Initialize the networkgit config user.email.
         Inputs:
@@ -240,6 +240,7 @@ class FullConvNet(object):
         self.num_hidden_layers = len(hidden_layers)
         self.bn_params = []
         self.dropout_params = []
+        self.reg = reg
 
         # Initialize batch normalization parameters if necessary.
         num_layers = self.num_conv_layers + self.num_hidden_layers
@@ -329,14 +330,16 @@ class FullConvNet(object):
 
         # Compute the forward pass for the fully connected net.
         input_layer = layer_score
-        for i in range(self.num_conv_layers+1, self.num_conv_layers+self.num_hidden_layers+1):
+        num_layers = self.num_conv_layers + self.num_hidden_layers
+        for i in range(self.num_conv_layers+1, num_layers+1):
             w = self.params['W{}'.format(i)]
             b = self.params['W{}'.format(i)]
             if self.use_batch_norm:
                 gamma = self.params['gamma{}'.format(i)]
                 beta = self.params['beta{}'.format(i)]
                 layer_score, layer_cache = affine_bn_relu_forward(x, w, b, gamma, beta, bn_param, 
-                                                                  dropout=False, dropout_param=None):
+                                                                  dropout=self.use_dropout, 
+                                                                  dropout_param=self.dropout_params):
             else:
                 layer_score, layer_cache = affine_bn_relu_backward(dout, cache, dropout)
             input_layer = layer_score
@@ -346,14 +349,60 @@ class FullConvNet(object):
         w = self.params['W{}'.format(i+1)]
         b = self.params['b{}'.format(i+1)]
         scores, output_cache = affine_forward(layer_score, w, b)
-        caches.append(output_cache)
 
         # If testing time return the scores
         if mode == 'test':
             return scores
 
         # Compute the loss
-        
+        loss, dscores = softmax_loss(scores, y)
+
+        # Add regularization to the loss and the corresponding gradient.
+        grads = {}
+        for i in range(1, num_layers+2):
+            w = 'W{}'.format(i)
+            loss += 0.5 * self.reg * np.sum(self.params[w] * self.params[w])
+            grads[w] = self.reg * self.params[w]
+
+        # Compute the gradients using backprop on the fully connected net.
+        # Start with the output layer
+        dx, dw, db = affine_backward(dscores, output_cache)
+        grads[w] += dw
+        grads[b] += db
+        for i in range(num_layers, self.num_conv_layers, -1):
+            cache = caches[i]
+            w = self.params['W{}'.format(i)]
+            b = self.params['b{}'.format(i)]
+            if self.use_batch_norm:
+                gamma = self.params['gamma{}'.format(i)]
+                beta = self.params['beta{}'.format(i)]
+                dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, cache)
+                grads[gamma] = dgamma
+                grads[beta] = dbeta
+            else:
+                dx, dw, db = affine_relu_backward(dx, cache)
+            grads[w] += dw
+            grads[b] = db
+
+        # Compute the gradeints using backprop on the convolutional layers.
+        for i in range(self.num_conv_layers, 0, -1):
+            cache = caches[i]
+            w = self.params['W{}'.format(i)]
+            b = self.params['b{}'.format(i)]
+            if self.use_batch_norm:
+                gamma = self.params['gamma{}'.format(i)]
+                beta = self.params['beta{}'.format(i)]
+                dx, dw, db, dgamma, dbeta = conv_bn_relu_pool_backward(dx, cache)
+                grads[gamma] = dgamma
+                grads[beta] = dbeta
+            else:
+                dx, dw, db = conv_relu_pool_backward(dx, cache)
+            grads[w] += dw
+            grads[b] = db
+
+        return loss, grads
+
+
 
 
 
