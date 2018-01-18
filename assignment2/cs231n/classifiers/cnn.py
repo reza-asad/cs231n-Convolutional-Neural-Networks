@@ -220,8 +220,8 @@ class FullConvNet(object):
     channels.
     """
 
-    def __init__(input_dim, num_filters, hidden_layers, num_classes,
-                 filter_size=7, weight_scale=1e-3, reg=0, dropout=0, 
+    def __init__(self, input_dim=(3,32,32), num_filters=[32], hidden_layers=[100], 
+                 num_classes=10 ,filter_size=7, weight_scale=1e-3, reg=0, dropout=0, 
                  use_batch_norm=False, dtype=np.float32):
         """
         Initialize the networkgit config user.email.
@@ -237,7 +237,7 @@ class FullConvNet(object):
         self.conv_params = {'stride': 1, 'pad': (filter_size - 1) // 2}
         self.pool_params = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
-        N, C, H, W = input_dim
+        C, H, W = input_dim
         # Initialize the parameters for the Convolutional network.
         channels = C
         HH = H
@@ -258,7 +258,7 @@ class FullConvNet(object):
 
         # Initialize the parameters for the fully connected network.
         fc_input_dim = np.prod((HH, WW, channels))
-        for i in range(1, hidden_layers+1):
+        for i in range(1, len(hidden_layers)+1):
             self.params['W{}'.format(i+num_conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i-1])
             fc_input_dim = hidden_layers[i-1]
             self.params['b{}'.format(i+num_conv_layers)] = np.zeros(hidden_layers[i-1])
@@ -267,13 +267,24 @@ class FullConvNet(object):
                 self.params['beta{}'.format(i+num_conv_layers)] = np.zeros(hidden_layers[i-1])
 
         # Initialize the parameters for the last layer of the fully connected network.
-        i += 1
-        self.params['W{}'.format(i+num_conv_layers)] = np.random.randn(hidden_layers[i-1], num_classes)
-        self.params['b{}'.format(i+num_conv_layers)] = np.zeros(num_classes)
+        self.params['W{}'.format(i+num_conv_layers+1)] = np.random.randn(hidden_layers[i-1], num_classes)
+        self.params['b{}'.format(i+num_conv_layers+1)] = np.zeros(num_classes)
 
         # Convert the dtype for the parameters of the model.
-        for k, v in self.params:
+        for k, v in self.params.items():
             self.params[k].dtype = dtype
+
+
+    def loss(X, y=None):
+        """
+        Evaluates the loss and gradient for the full cnn.
+        Inputs:
+        - X
+        - y
+        """
+        # Compute the forward pass fo the cnn.
+        for i in range(1, num_filters+1):
+            pass
 
 
 
