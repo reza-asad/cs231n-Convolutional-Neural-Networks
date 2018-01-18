@@ -236,20 +236,34 @@ class FullConvNet(object):
         self.use_batch_norm = use_batch_norm
         self.conv_params = {'stride': 1, 'pad': (filter_size - 1) // 2}
         self.pool_params = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
+        self.num_conv_layers = len(num_filters)
+        self.num_hidden_layers = len(hidden_layers)
+        self.bn_params = []
+        self.dropout_params = []
+
+        # Initialize batch normalization parameters if necessary.
+        num_layers = self.num_conv_layers + self.num_hidden_layers
+        if self.use_batch_norm:
+            for i in range(num_layers):
+                self.bn_params.append({'mode':'train'})
+        # Initialize dropout parameters if necessary
+        if self.use_dropout:
+            self.dropout_params = {'mode':'trian', 'p':dropout}
 
         C, H, W = input_dim
         # Initialize the parameters for the Convolutional network.
         channels = C
         HH = H
         WW = W
-        num_conv_layers = len(num_filters)
-        for i in range(1, num_conv_layers+1):
+        self.conv_params[0] = {'stride': 1, 'pad': (filter_size - 1) // 2}
+        for i in range(1, self.num_conv_layers+1):
             self.params['W{}'.format(i)] = np.random.randn(num_filters[i-1], channels, filter_size, filter_size) * weight_scale
             self.params['b{}'.format(i)] = np.zeros(num_filters[i-1])
             # Keeping track of the Height and Width of the image as we convolve
             # it through multiple layers.
             HH = (HH - self.pool_params['pool_height']) / self.pool_params['stride'] + 1
             WW = (WW - self.pool_params['pool_width']) / self.pool_params['stride'] + 1
+
             # Updating the number of channels for the new input.
             channels = num_filters[i-1]
             if self.use_batch_norm:
@@ -258,17 +272,17 @@ class FullConvNet(object):
 
         # Initialize the parameters for the fully connected network.
         fc_input_dim = np.prod((HH, WW, channels))
-        for i in range(1, len(hidden_layers)+1):
-            self.params['W{}'.format(i+num_conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i-1])
+        for i in range(1, self.num_hidden_layers+1):
+            self.params['W{}'.format(i+self.num_conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i-1])
             fc_input_dim = hidden_layers[i-1]
-            self.params['b{}'.format(i+num_conv_layers)] = np.zeros(hidden_layers[i-1])
+            self.params['b{}'.format(i+self.num_conv_layers)] = np.zeros(hidden_layers[i-1])
             if self.use_batch_norm:
-                self.params['gamma{}'.format(i+num_conv_layers)] = np.ones(hidden_layers[i-1]) 
-                self.params['beta{}'.format(i+num_conv_layers)] = np.zeros(hidden_layers[i-1])
+                self.params['gamma{}'.format(i+self.num_conv_layers)] = np.ones(hidden_layers[i-1]) 
+                self.params['beta{}'.format(i+self.num_conv_layers)] = np.zeros(hidden_layers[i-1])
 
         # Initialize the parameters for the last layer of the fully connected network.
-        self.params['W{}'.format(i+num_conv_layers+1)] = np.random.randn(hidden_layers[i-1], num_classes)
-        self.params['b{}'.format(i+num_conv_layers+1)] = np.zeros(num_classes)
+        self.params['W{}'.format(i+self.num_conv_layers+1)] = np.random.randn(hidden_layers[i-1], num_classes)
+        self.params['b{}'.format(i+self.num_conv_layers+1)] = np.zeros(num_classes)
 
         # Convert the dtype for the parameters of the model.
         for k, v in self.params.items():
@@ -282,9 +296,93 @@ class FullConvNet(object):
         - X
         - y
         """
+
+        # Findout if it's trainig or test time
+        mode = 'trian'
+        if y is None:
+            mode = 'test'
+
+        # Set the mode for batch normalization and dropout parameters if needed.
+        if self.use_batch_norm:
+            for bn_param in self.bn_params:
+                bn_param['mode'] = mode
+        if self.use_dropout:
+            self.dropout_params['mode'] = mode
+
         # Compute the forward pass fo the cnn.
-        for i in range(1, num_filters+1):
-            pass
+        caches = []
+        input_layer = X
+        for i in range(1, self.num_conv_layers+1):
+            w = self.params['W{}'.format(i)]
+            b = self.paramsp['b{}'.format(i)]
+            if self.use_batch_norm:
+                gamma = self.params['gamma{}'.format(i)]
+                beta = self.params['beta{}'.format(i)]
+                layer_score, layer_cache = conv_bn_relu_pool_forward(input_layer, w, b, gamma, beta,
+                                                                     self.conv_params, self.bn_params[i-1], 
+                                                                     self.pool_param)
+            else:
+                layer_score, layer_cache = conv_relu_pool_forward(input_layer, w, b, self.conv_params, 
+                                                                  self.pool_param)
+            input_layer = layer_score
+            caches.append(layer_cache)
+
+        # Compute the forward pass for the fully connected net.
+        input_layer = layer_score
+        for i in range(self.num_conv_layers+1, self.num_conv_layers+self.num_hidden_layers+1):
+            w = self.params['W{}'.format(i)]
+            b = self.params['W{}'.format(i)]
+            if self.use_batch_norm:
+                gamma = self.params['gamma{}'.format(i)]
+                beta = self.params['beta{}'.format(i)]
+                layer_score, layer_cache = affine_bn_relu_forward(x, w, b, gamma, beta, bn_param, 
+                                                                  dropout=False, dropout_param=None):
+            else:
+                layer_score, layer_cache = affine_bn_relu_backward(dout, cache, dropout)
+            input_layer = layer_score
+            caches.append(layer_cache)
+
+        # Compute the forward pass for the output layer.
+        w = self.params['W{}'.format(i+1)]
+        b = self.params['b{}'.format(i+1)]
+        scores, output_cache = affine_forward(layer_score, w, b)
+        caches.append(output_cache)
+
+        # If testing time return the scores
+        if mode == 'test':
+            return scores
+
+        # Compute the loss
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
