@@ -220,13 +220,13 @@ class FullConvNet(object):
     channels.
     """
 
-    def __init__(input_dim, conv_layers, hidden_layers, num_classes,
+    def __init__(input_dim, num_filters, hidden_layers, num_classes,
                  filter_size=7, weight_scale=1e-3, reg=0, dropout=0, 
                  use_batch_norm=False, dtype=np.float32):
         """
         Initialize the networkgit config user.email.
         Inputs:
-        - conv_layers: An array of size H representing the depth of the cnn.
+        - num_filters: An array of size H representing the depth of the cnn.
         - weight_scale: Scalar giving the standard deviation for the randomly 
           initialized weights.
 
@@ -242,33 +242,38 @@ class FullConvNet(object):
         channels = C
         HH = H
         WW = W
-        for i in range(1, conv_layers+1):
-            self.params['W{}'.format(i)] = np.random.randn(conv_layers[i-1], channels, filter_size, filter_size) * weight_scale
-            self.params['b{}'.format(i)] = np.zeros(conv_layers[i-1])
+        num_conv_layers = len(num_filters)
+        for i in range(1, num_conv_layers+1):
+            self.params['W{}'.format(i)] = np.random.randn(num_filters[i-1], channels, filter_size, filter_size) * weight_scale
+            self.params['b{}'.format(i)] = np.zeros(num_filters[i-1])
             # Keeping track of the Height and Width of the image as we convolve
             # it through multiple layers.
-            HH = (HH - filter_size) / pool_params['stride'] + 1
-            WW = (WW - filter_size) / pool_params['stride'] + 1
+            HH = (HH - self.pool_params['pool_height']) / self.pool_params['stride'] + 1
+            WW = (WW - self.pool_params['pool_width']) / self.pool_params['stride'] + 1
             # Updating the number of channels for the new input.
-            channels = conv_layers[i-1]
+            channels = num_filters[i-1]
             if self.use_batch_norm:
                 self.params['gamma{}'.format(i)] = np.ones(channels)
                 self.params['beta{}'.format(i)] = np.zeros(channels)
 
         # Initialize the parameters for the fully connected network.
         fc_input_dim = np.prod((HH, WW, channels))
-        for i in range(hidden_layers):
-            self.params['W{}'.format(i+conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i])
-            fc_input_dim = hidden_layers[i]
-            self.params['b{}'.format(i+conv_layers)] = np.zeros(hidden_layers[i])
+        for i in range(1, hidden_layers+1):
+            self.params['W{}'.format(i+num_conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i-1])
+            fc_input_dim = hidden_layers[i-1]
+            self.params['b{}'.format(i+num_conv_layers)] = np.zeros(hidden_layers[i-1])
             if self.use_batch_norm:
-                self.params['gamma{}'.format(i+conv_layers)] = np.ones(hidden_layers[i]) 
-                self.params['beta{}'.format(i+conv_layers)] = np.zeros(hidden_layers[i])
+                self.params['gamma{}'.format(i+num_conv_layers)] = np.ones(hidden_layers[i-1]) 
+                self.params['beta{}'.format(i+num_conv_layers)] = np.zeros(hidden_layers[i-1])
 
         # Initialize the parameters for the last layer of the fully connected network.
         i += 1
-        self.params['W{}'.format(i+conv_layers)] = np.random.randn(hidden_layers[i], num_classes)
-        self.params['b{}'.format(i+conv_layers)] = np.zeros(num_classes)
+        self.params['W{}'.format(i+num_conv_layers)] = np.random.randn(hidden_layers[i-1], num_classes)
+        self.params['b{}'.format(i+num_conv_layers)] = np.zeros(num_classes)
+
+        # Convert the dtype for the parameters of the model.
+        for k, v in self.params:
+            self.params[k].dtype = dtype
 
 
 
