@@ -368,16 +368,18 @@ class FullConvNet(object):
 
         # Compute the gradients using backprop on the fully connected net.
         # Start with the output layer
+        w = 'W{}'.format(num_layers+1)
+        b = 'b{}'.format(num_layers+1)
         dx, dw, db = affine_backward(dscores, output_cache)
         grads[w] += dw
-        grads[b] += db
+        grads[b] = db
         for i in range(num_layers, self.num_conv_layers, -1):
-            cache = caches[i]
-            w = self.params['W{}'.format(i)]
-            b = self.params['b{}'.format(i)]
+            cache = caches[i-1]
+            w = 'W{}'.format(i)
+            b = 'b{}'.format(i)
             if self.use_batch_norm:
-                gamma = self.params['gamma{}'.format(i)]
-                beta = self.params['beta{}'.format(i)]
+                gamma = 'gamma{}'.format(i)
+                beta = 'beta{}'.format(i)
                 dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, cache)
                 grads[gamma] = dgamma
                 grads[beta] = dbeta
@@ -388,12 +390,12 @@ class FullConvNet(object):
 
         # Compute the gradeints using backprop on the convolutional layers.
         for i in range(self.num_conv_layers, 0, -1):
-            cache = caches[i]
-            w = self.params['W{}'.format(i)]
-            b = self.params['b{}'.format(i)]
+            cache = caches[i-1]
+            w = 'W{}'.format(i)
+            b = 'b{}'.format(i)
             if self.use_batch_norm:
-                gamma = self.params['gamma{}'.format(i)]
-                beta = self.params['beta{}'.format(i)]
+                gamma = 'gamma{}'.format(i)
+                beta = 'beta{}'.format(i)
                 dx, dw, db, dgamma, dbeta = conv_bn_relu_pool_backward(dx, cache)
                 grads[gamma] = dgamma
                 grads[beta] = dbeta
