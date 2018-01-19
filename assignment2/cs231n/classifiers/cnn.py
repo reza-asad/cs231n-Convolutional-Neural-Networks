@@ -274,7 +274,7 @@ class FullConvNet(object):
         # Initialize the parameters for the fully connected network.
         fc_input_dim = np.prod((HH, WW, channels))
         for i in range(1, self.num_hidden_layers+1):
-            self.params['W{}'.format(i+self.num_conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i-1])
+            self.params['W{}'.format(i+self.num_conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i-1]) * weight_scale
             fc_input_dim = hidden_layers[i-1]
             self.params['b{}'.format(i+self.num_conv_layers)] = np.zeros(hidden_layers[i-1])
             if self.use_batch_norm:
@@ -282,7 +282,7 @@ class FullConvNet(object):
                 self.params['beta{}'.format(i+self.num_conv_layers)] = np.zeros(hidden_layers[i-1])
 
         # Initialize the parameters for the last layer of the fully connected network.
-        self.params['W{}'.format(i+self.num_conv_layers+1)] = np.random.randn(hidden_layers[i-1], num_classes)
+        self.params['W{}'.format(i+self.num_conv_layers+1)] = np.random.randn(hidden_layers[i-1], num_classes) * weight_scale
         self.params['b{}'.format(i+self.num_conv_layers+1)] = np.zeros(num_classes)
 
         # Convert the dtype for the parameters of the model.
@@ -299,7 +299,7 @@ class FullConvNet(object):
         """
 
         # Findout if it's trainig or test time
-        mode = 'trian'
+        mode = 'train'
         if y is None:
             mode = 'test'
 
@@ -330,7 +330,6 @@ class FullConvNet(object):
             caches.append(layer_cache)
 
         # Compute the forward pass for the fully connected net.
-        input_layer = layer_score
         num_layers = self.num_conv_layers + self.num_hidden_layers
         for i in range(self.num_conv_layers+1, num_layers+1):
             w = self.params['W{}'.format(i)]
@@ -338,7 +337,8 @@ class FullConvNet(object):
             if self.use_batch_norm:
                 gamma = self.params['gamma{}'.format(i)]
                 beta = self.params['beta{}'.format(i)]
-                layer_score, layer_cache = affine_bn_relu_forward(input_layer, w, b, gamma, beta, bn_param, 
+                layer_score, layer_cache = affine_bn_relu_forward(input_layer, w, b, gamma, beta,
+                                                                  self.bn_params[i-1],
                                                                   dropout=self.use_dropout, 
                                                                   dropout_param=self.dropout_params)
             else:
@@ -350,7 +350,7 @@ class FullConvNet(object):
         # Compute the forward pass for the output layer.
         w = self.params['W{}'.format(i+1)]
         b = self.params['b{}'.format(i+1)]
-        scores, output_cache = affine_forward(layer_score, w, b)
+        scores, output_cache = affine_forward(input_layer, w, b)
 
         # If testing time return the scores
         if mode == 'test':
@@ -363,7 +363,7 @@ class FullConvNet(object):
         grads = {}
         for i in range(1, num_layers+2):
             w = 'W{}'.format(i)
-            loss += 0.5 * self.reg * np.sum(self.params[w] * self.params[w])
+            loss += 0.5 * self.reg * np.sum(self.params[w]**2)
             grads[w] = self.reg * self.params[w]
 
         # Compute the gradients using backprop on the fully connected net.
@@ -380,7 +380,7 @@ class FullConvNet(object):
             if self.use_batch_norm:
                 gamma = 'gamma{}'.format(i)
                 beta = 'beta{}'.format(i)
-                dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, cache)
+                dx, dw, db, dgamma, dbeta = affine_bn_relu_backward(dx, cache, self.use_dropout)
                 grads[gamma] = dgamma
                 grads[beta] = dbeta
             else:
