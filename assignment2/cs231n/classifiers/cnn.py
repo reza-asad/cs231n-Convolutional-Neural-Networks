@@ -222,7 +222,7 @@ class FullConvNet(object):
 
     def __init__(self, input_dim=(3,32,32), num_filters=[32], hidden_layers=[100], 
                  num_classes=10 ,filter_size=7, weight_scale=1e-3, reg=0, dropout=0, 
-                 use_batch_norm=False, reg=0, dtype=np.float32):
+                 use_batch_norm=False, dtype=np.float32):
         """
         Initialize the networkgit config user.email.
         Inputs:
@@ -287,10 +287,10 @@ class FullConvNet(object):
 
         # Convert the dtype for the parameters of the model.
         for k, v in self.params.items():
-            self.params[k].dtype = dtype
+            self.params[k] = v.astype(dtype)
 
 
-    def loss(X, y=None):
+    def loss(self, X, y=None):
         """
         Evaluates the loss and gradient for the full cnn.
         Inputs:
@@ -315,16 +315,17 @@ class FullConvNet(object):
         input_layer = X
         for i in range(1, self.num_conv_layers+1):
             w = self.params['W{}'.format(i)]
-            b = self.paramsp['b{}'.format(i)]
+            b = self.params['b{}'.format(i)]
+
             if self.use_batch_norm:
                 gamma = self.params['gamma{}'.format(i)]
                 beta = self.params['beta{}'.format(i)]
                 layer_score, layer_cache = conv_bn_relu_pool_forward(input_layer, w, b, gamma, beta,
                                                                      self.conv_params, self.bn_params[i-1], 
-                                                                     self.pool_param)
+                                                                     self.pool_params)
             else:
                 layer_score, layer_cache = conv_relu_pool_forward(input_layer, w, b, self.conv_params, 
-                                                                  self.pool_param)
+                                                                  self.pool_params)
             input_layer = layer_score
             caches.append(layer_cache)
 
@@ -333,15 +334,16 @@ class FullConvNet(object):
         num_layers = self.num_conv_layers + self.num_hidden_layers
         for i in range(self.num_conv_layers+1, num_layers+1):
             w = self.params['W{}'.format(i)]
-            b = self.params['W{}'.format(i)]
+            b = self.params['b{}'.format(i)]
             if self.use_batch_norm:
                 gamma = self.params['gamma{}'.format(i)]
                 beta = self.params['beta{}'.format(i)]
-                layer_score, layer_cache = affine_bn_relu_forward(x, w, b, gamma, beta, bn_param, 
+                layer_score, layer_cache = affine_bn_relu_forward(input_layer, w, b, gamma, beta, bn_param, 
                                                                   dropout=self.use_dropout, 
-                                                                  dropout_param=self.dropout_params):
+                                                                  dropout_param=self.dropout_params)
             else:
-                layer_score, layer_cache = affine_bn_relu_backward(dout, cache, dropout)
+                layer_score, layer_cache = affine_relu_forward(input_layer, w, b, dropout=self.use_dropout, 
+                                                               dropout_param=self.dropout_params)
             input_layer = layer_score
             caches.append(layer_cache)
 
