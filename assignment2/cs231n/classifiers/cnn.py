@@ -226,9 +226,18 @@ class FullConvNet(object):
         """
         Initialize the networkgit config user.email.
         Inputs:
-        - num_filters: An array of size H representing the depth of the cnn.
+        - Input_deim: The dimension of the images to be classified.
+        - num_filters: An array representing dimension of all of the cnn layers.
+        - hidden_layers: An array representing dimension of all hidden layers
+          to the fully connected network.
+        - num_classes: Integer representing the number of classes.
+        - filter_size: The size of every filter applied in the cnn.
         - weight_scale: Scalar giving the standard deviation for the randomly 
           initialized weights.
+        - reg: The regularization parameter of the netowrk.
+        - dropout: The probability of drping out a node in all the hidden layers
+          of the fully connected netwrok.
+        - use_batch_norm: A boolean to use batch normalization if necessary.
 
         """
         self.params={}
@@ -252,21 +261,31 @@ class FullConvNet(object):
             self.dropout_params = {'mode':'trian', 'p':dropout}
 
         C, H, W = input_dim
+        channels, HH, WW = C, H, W
         # Initialize the parameters for the Convolutional network.
-        channels = C
-        HH = H
-        WW = W
-        self.conv_params[0] = {'stride': 1, 'pad': (filter_size - 1) // 2}
         for i in range(1, self.num_conv_layers+1):
-            self.params['W{}'.format(i)] = np.random.randn(num_filters[i-1], channels, filter_size, filter_size) * weight_scale
+            self.params['W{}'.format(i)] = np.random.randn(num_filters[i-1], 
+                                                           channels, filter_size, 
+                                                           filter_size) * weight_scale
             self.params['b{}'.format(i)] = np.zeros(num_filters[i-1])
             # Keeping track of the Height and Width of the image as we convolve
-            # it through multiple layers.
-            HH = (HH - self.pool_params['pool_height']) / self.pool_params['stride'] + 1
-            WW = (WW - self.pool_params['pool_width']) / self.pool_params['stride'] + 1
+            # it through multiple layers. After pooling make sure the dimensions
+            # make sense
+            if (HH - self.pool_params['pool_height']) % self.pool_params['stride'] != 0:
+                raise Exception('The pool height {} with input height {} does not match'.\
+                    format(self.params['pool_height'], HH))
+            else:
+                HH = (HH - self.pool_params['pool_height']) / self.pool_params['stride'] + 1
+            if (WW - self.pool_params['pool_width']) % self.pool_params['stride'] != 0:
+                raise Exception('The pool width {} with input width {} does not match'.\
+                    format(self.params['pool_width'], WW))
+            else:
+                WW = (WW - self.pool_params['pool_width']) / self.pool_params['stride'] + 1
+
 
             # Updating the number of channels for the new input.
             channels = num_filters[i-1]
+            # Initialize the parameters for the batch normalization if necessary.
             if self.use_batch_norm:
                 self.params['gamma{}'.format(i)] = np.ones(channels)
                 self.params['beta{}'.format(i)] = np.zeros(channels)
@@ -274,15 +293,18 @@ class FullConvNet(object):
         # Initialize the parameters for the fully connected network.
         fc_input_dim = np.prod((HH, WW, channels))
         for i in range(1, self.num_hidden_layers+1):
-            self.params['W{}'.format(i+self.num_conv_layers)] = np.random.randn(fc_input_dim, hidden_layers[i-1]) * weight_scale
-            fc_input_dim = hidden_layers[i-1]
+            self.params['W{}'.format(i+self.num_conv_layers)] = np.random.randn(fc_input_dim, 
+                                                                                hidden_layers[i-1]) * weight_scale
             self.params['b{}'.format(i+self.num_conv_layers)] = np.zeros(hidden_layers[i-1])
+            # Initialize the parameters for batch normalization if necessary.
             if self.use_batch_norm:
-                self.params['gamma{}'.format(i+self.num_conv_layers)] = np.ones(hidden_layers[i-1]) 
+                self.params['gamma{}'.format(i+self.num_conv_layers)] = np.ones(hidden_layers[i-1])
                 self.params['beta{}'.format(i+self.num_conv_layers)] = np.zeros(hidden_layers[i-1])
+            fc_input_dim = hidden_layers[i-1]
 
         # Initialize the parameters for the last layer of the fully connected network.
-        self.params['W{}'.format(i+self.num_conv_layers+1)] = np.random.randn(hidden_layers[i-1], num_classes) * weight_scale
+        self.params['W{}'.format(i+self.num_conv_layers+1)] = np.random.randn(hidden_layers[i-1],
+                                                                              num_classes) * weight_scale
         self.params['b{}'.format(i+self.num_conv_layers+1)] = np.zeros(num_classes)
 
         # Convert the dtype for the parameters of the model.
@@ -294,8 +316,8 @@ class FullConvNet(object):
         """
         Evaluates the loss and gradient for the full cnn.
         Inputs:
-        - X
-        - y
+        - X: The input images of shape (N, C, H, W)
+        - y: The class for each image where each class 0 <= c <= num_classes.
         """
 
         # Findout if it's trainig or test time
