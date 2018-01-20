@@ -271,13 +271,13 @@ class FullConvNet(object):
             # Keeping track of the Height and Width of the image as we convolve
             # it through multiple layers. After pooling make sure the dimensions
             # make sense
-            if (HH - self.pool_params['pool_height']) % self.pool_params['stride'] != 0:
-                raise Exception('The pool height {} with input height {} does not match'.\
-                    format(self.params['pool_height'], HH))
+            if (HH <=  self.pool_params['pool_height']):
+                raise Exception('The pool height and input height are equal'.\
+                    format(self.pool_params['pool_height'], HH))
             else:
                 HH = (HH - self.pool_params['pool_height']) / self.pool_params['stride'] + 1
-            if (WW - self.pool_params['pool_width']) % self.pool_params['stride'] != 0:
-                raise Exception('The pool width {} with input width {} does not match'.\
+            if (WW <= self.pool_params['pool_width']):
+                raise Exception('The pool width and input width are equal'.\
                     format(self.params['pool_width'], WW))
             else:
                 WW = (WW - self.pool_params['pool_width']) / self.pool_params['stride'] + 1
