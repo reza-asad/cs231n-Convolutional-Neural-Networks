@@ -3,8 +3,6 @@ from __future__ import print_function
 import numpy as np
 from cs231n.classifiers.linear_svm import *
 from cs231n.classifiers.softmax import *
-from past.builtins import xrange
-
 
 class LinearClassifier(object):
 
@@ -38,41 +36,16 @@ class LinearClassifier(object):
 
     # Run stochastic gradient descent to optimize W
     loss_history = []
-    for it in xrange(num_iters):
-      X_batch = None
-      y_batch = None
-
-      #########################################################################
-      # TODO:                                                                 #
-      # Sample batch_size elements from the training data and their           #
-      # corresponding labels to use in this round of gradient descent.        #
-      # Store the data in X_batch and their corresponding labels in           #
-      # y_batch; after sampling X_batch should have shape (dim, batch_size)   #
-      # and y_batch should have shape (batch_size,)                           #
-      #                                                                       #
-      # Hint: Use np.random.choice to generate indices. Sampling with         #
-      # replacement is faster than sampling without replacement.              #
-      #########################################################################
-      batch_indices = np.random.choice(num_train, batch_size, replace=True)
-      X_batch = X[batch_indices]
-      y_batch = y[batch_indices]
-      #########################################################################
-      #                       END OF YOUR CODE                                #
-      #########################################################################
+    for it in range(num_iters):
+      random_idx = np.random.choice(num_train, batch_size, replace=True)
+      X_batch = X[random_idx, ]
+      y_batch = y[random_idx, ]
 
       # evaluate loss and gradient
       loss, grad = self.loss(X_batch, y_batch, reg)
       loss_history.append(loss)
 
-      # perform parameter update
-      #########################################################################
-      # TODO:                                                                 #
-      # Update the weights using the gradient and the learning rate.          #
-      #########################################################################
-      self.W += -learning_rate * grad
-      #########################################################################
-      #                       END OF YOUR CODE                                #
-      #########################################################################
+      self.W -= learning_rate * grad
 
       if verbose and it % 100 == 0:
         print('iteration %d / %d: loss %f' % (it, num_iters, loss))
@@ -93,17 +66,8 @@ class LinearClassifier(object):
       array of length N, and each element is an integer giving the predicted
       class.
     """
-    y_pred = np.zeros(X.shape[0])
-    ###########################################################################
-    # TODO:                                                                   #
-    # Implement this method. Store the predicted labels in y_pred.            #
-    ###########################################################################
-    y_pred = np.argmax(X.dot(self.W), axis=1)
-
-    ###########################################################################
-    #                           END OF YOUR CODE                              #
-    ###########################################################################
-    return y_pred
+    scores = X.dot(self.W)
+    return np.argmax(scores, axis=1)
   
   def loss(self, X_batch, y_batch, reg):
     """
@@ -120,29 +84,8 @@ class LinearClassifier(object):
     - loss as a single float
     - gradient with respect to self.W; an array of the same shape as W
     """
+    pass
 
-    # Conpute Loss
-    scores = X_batch.dot(self.W)
-    correct_class_scores = scores[np.arange(len(scores)), y_batch]
-    margins = scores - correct_class_scores[:, np.newaxis] + 1
-    is_margin_positive = (margins > 0) + 0
-    positive_margin_counts = np.sum(is_margin_positive, axis=1) - 1
-    is_margin_positive[np.arange(len(is_margin_positive)), y_batch] = -positive_margin_counts
-    margins = margins[is_margin_positive]
-    loss = np.sum(margins) - num_train
-
-    # Compute Gradient
-    dW = X_batch.dot(is_margin_positive)
-
-    # Average the loss and gradient over the number of training data
-    loss /= num_train
-    dW /= num_train
-
-    # Add regularization
-    loss += reg * np.sum(W * W)
-    dW += 2 * reg * W
-
-    return loss, dW    
 
 class LinearSVM(LinearClassifier):
   """ A subclass that uses the Multiclass SVM loss function """

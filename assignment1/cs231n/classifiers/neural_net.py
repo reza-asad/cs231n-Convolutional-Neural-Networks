@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import numpy as np
 import matplotlib.pyplot as plt
-from past.builtins import xrange
 
 class TwoLayerNet(object):
   """
@@ -36,12 +35,12 @@ class TwoLayerNet(object):
     - output_size: The number of classes C.
     """
     self.params = {}
-    self.params['W1'] = np.random.randn(input_size, hidden_size) * std
-    self.params['b1'] = np.zeros(hidden_size)
-    self.params['W2'] = np.random.randn(hidden_size, output_size) * std
-    self.params['b2'] = np.zeros(output_size)
+    self.params['W1'] = std * np.random.randn(input_size, hidden_size)
+    self.params['b1'] = np.zeros((1,hidden_size))
+    self.params['W2'] = std * np.random.randn(hidden_size, output_size)
+    self.params['b2'] = np.zeros((1, output_size))
 
-  def loss(self, X, y=None, reg=0.0, drop_out=False, drop_out_prob=0.5):
+  def loss(self, X, y=None, reg=0.0):
     """
     Compute the loss and gradients for a two layer fully connected neural
     network.
@@ -68,83 +67,39 @@ class TwoLayerNet(object):
     W1, b1 = self.params['W1'], self.params['b1']
     W2, b2 = self.params['W2'], self.params['b2']
     N, D = X.shape
-    H = W1.shape[1]
+    _ , num_classes = W2.shape 
 
     # Compute the forward pass
-    scores = None
-    #############################################################################
-    # TODO: Perform the forward pass, computing the class scores for the input. #
-    # Store the result in the scores variable, which should be an array of      #
-    # shape (N, C).                                                             #
-    #############################################################################
-    linear_hidden = np.dot(X, W1) + b1
-    hidden = np.maximum((linear_hidden), 0)
-    
-    # Drop out some of the nodes in the hidden layer
-    if drop_out:
-    	drop_out_indices = np.random.rand(*hidden.shape) < drop_out_prob 
-    	hidden = hidden * drop_out_indices / drop_out_prob
-
-    scores = np.dot(hidden, W2) + b2
-
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
-    
+    hidden = X.dot(W1) + b1
+    hidden = np.maximum(0, hidden)
+    scores = hidden.dot(W2) + b2
+ 
     # If the targets are not given then jump out, we're done
     if y is None:
       return scores
 
     # Compute the loss
-    loss = None
-    #############################################################################
-    # TODO: Finish the forward pass, and compute the loss. This should include  #
-    # both the data loss and L2 regularization for W1 and W2. Store the result  #
-    # in the variable loss, which should be a scalar. Use the Softmax           #
-    # classifier loss.                                                          #
-    #############################################################################
-    reduced_scores = scores - np.max(scores, axis=1)[:, np.newaxis]
-    correct_class_score = reduced_scores[np.arange(len(reduced_scores)), y]
-    sum_exp_scores = np.sum(np.exp(reduced_scores), axis=1)
-    loss_vector = -correct_class_score + np.log(sum_exp_scores)
+    scores -= np.max(scores, axis=1)[ :, np.newaxis]
+    scores_exp = np.exp(scores)
+    loss = -scores[np.arange(len(scores)), y] + np.log(np.sum(scores_exp, axis=1))
+    loss = np.sum(loss) / N
 
-    # Average the loss and add regularization
-    loss = np.sum(loss_vector) / N + reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
-
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
-
-    # Backward pass: compute gradients
+    # Comute the gradients
     grads = {}
-    #############################################################################
-    # TODO: Compute the backward pass, computing the derivatives of the weights #
-    # and biases. Store the results in the grads dictionary. For example,       #
-    # grads['W1'] should store the gradient on W1, and be a matrix of same size #
-    #############################################################################
-    grads['W1'] = 2 * reg * W1
-    grads['W2'] = 2 * reg * W2
+    scores_exp /= np.sum(scores_exp, axis=1)[ :, np.newaxis]
+    scores_exp[np.arange(len(scores_exp)), y] -= 1
+    dScores = scores_exp / N
+    grads['W2'] = np.dot(hidden.T, dScores)
+    grads['b2'] = np.dot(np.ones((1, N)), dScores)
+    dHidden = np.dot(dScores, W2.T)
+    dHidden = dHidden * (hidden > 0)
+    grads['W1'] = np.dot(X.T, dHidden)
+    grads['b1'] = np.dot(np.ones((1, N)), dHidden)
 
-    dloss_vector = 1.0 / N * np.ones(len(loss_vector))
-    dsum_exp_scores = 1.0 / sum_exp_scores * dloss_vector
-    temp = np.zeros((N, scores.shape[1]))
-    temp[np.arange(N), y] = -1
-    dreduced_scores = temp * dloss_vector[:, np.newaxis]
-
-    dreduced_scores += np.exp(reduced_scores) * dsum_exp_scores[:, np.newaxis]
-    
-    dscores = dreduced_scores
-
-    grads['W2'] += np.dot(hidden.T, dscores)
-    grads['b2'] = np.dot(dscores.T, np.ones(N))
-    dhidden = np.dot(dscores, W2.T)
-    dhidden[hidden <= 0] = 0
-    grads['W1'] += np.dot(X.T, dhidden) 
-    grads['b1'] = np.dot(dhidden.T, np.ones(N))
-
-    #############################################################################
-    #                              END OF YOUR CODE                             #
-    #############################################################################
+    # Add regularization
+    loss += reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+    grads['W1'] += 2 * reg * W1
+    grads['W2'] += 2 * reg * W2
 
     return loss, grads
 
@@ -177,36 +132,19 @@ class TwoLayerNet(object):
     train_acc_history = []
     val_acc_history = []
 
-    for it in xrange(num_iters):
-      X_batch = None
-      y_batch = None
-
-      #########################################################################
-      # TODO: Create a random minibatch of training data and labels, storing  #
-      # them in X_batch and y_batch respectively.                             #
-      #########################################################################
-      batch_indices = np.random.choice(num_train, batch_size)
-      X_batch = X[batch_indices]
-      y_batch = y[batch_indices]
-      #########################################################################
-      #                             END OF YOUR CODE                          #
-      #########################################################################
+    for it in range(num_iters):
+      random_idx = np.random.choice(num_train, batch_size, replace=True)
+      X_batch = X[random_idx]
+      y_batch = y[random_idx]
 
       # Compute loss and gradients using the current minibatch
-      loss, grads = self.loss(X_batch, y=y_batch, reg=reg, drop_out=True)
+      loss, grads = self.loss(X_batch, y=y_batch, reg=reg)
       loss_history.append(loss)
 
-      #########################################################################
-      # TODO: Use the gradients in the grads dictionary to update the         #
-      # parameters of the network (stored in the dictionary self.params)      #
-      # using stochastic gradient descent. You'll need to use the gradients   #
-      # stored in the grads dictionary defined above.                         #
-      #########################################################################
-      for parameter, grad in grads.items():
-	      self.params[parameter] += -learning_rate * grad
-      #########################################################################
-      #                             END OF YOUR CODE                          #
-      #########################################################################
+      self.params['W1'] -= learning_rate * grads['W1']
+      self.params['W2'] -= learning_rate * grads['W2']
+      self.params['b1'] -= learning_rate * grads['b1']
+      self.params['b2'] -= learning_rate * grads['b2']
 
       if verbose and it % 100 == 0:
         print('iteration %d / %d: loss %f' % (it, num_iters, loss))
@@ -243,19 +181,8 @@ class TwoLayerNet(object):
       the elements of X. For all i, y_pred[i] = c means that X[i] is predicted
       to have class c, where 0 <= c < C.
     """
-    y_pred = None
+    return np.argmax(self.loss(X), axis=1)
 
-    ###########################################################################
-    # TODO: Implement this function; it should be VERY simple!                #
-    ###########################################################################
-    hidden = np.maximum(np.dot(X, self.params['W1']) + self.params['b1'], 0)
-    y_pred = np.dot(hidden, self.params['W2']) + self.params['b2']
-    y_pred = np.argmax(y_pred, axis=1)
 
-    ###########################################################################
-    #                              END OF YOUR CODE                           #
-    ###########################################################################
-
-    return y_pred
 
 

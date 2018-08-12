@@ -1,6 +1,5 @@
 import numpy as np
 from random import shuffle
-from past.builtins import xrange
 
 def softmax_loss_naive(W, X, y, reg):
   """
@@ -23,41 +22,24 @@ def softmax_loss_naive(W, X, y, reg):
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
-  num_train = X.shape[0]
-  num_classes = dW.shape[1]
-  #############################################################################
-  # TODO: Compute the softmax loss and its gradient using explicit loops.     #
-  # Store the loss in loss and the gradient in dW. If you are not careful     #
-  # here, it is easy to run into numeric instability. Don't forget the        #
-  # regularization!                                                           #
-  #############################################################################
-  scores = X.dot(W)
-  max_scores = np.max(scores, axis=1)[:, np.newaxis]
-  scores -= max_scores
-  correct_class_scores = scores[np.arange(len(scores)), y][:, np.newaxis]
-  exp_scores = np.exp(scores)
-  sum_exp_scores = np.sum(exp_scores, axis=1)[:, np.newaxis]
-  loss = -correct_class_scores + np.log(sum_exp_scores)
+  num_train = len(X)
+  _ , num_classes = W.shape
 
-  # Compute the gradient using loops
   for i in range(num_train):
+    scores = X[i,: ].dot(W)
+    scores -= np.max(scores)
+    sum_exp = np.sum(np.exp(scores))
+    loss += (np.log(sum_exp) - scores[y[i]])
     for j in range(num_classes):
-      if j == y[i]:
-        dW[:, y[i]] += -X[i]
-      else:
-        dW[:, j] += (1.0 / sum_exp_scores[i]) * exp_scores[i,j] * X[i]
+      dW[ :,j] += (np.exp(scores[j]) / sum_exp ) * X[i,: ]
+    dW[ :, y[i]] -= X[i,: ]
 
-  # Average the loss and gradient over the traiing data
-  loss = np.sum(loss) / num_train
+  loss /= num_train
   dW /= num_train
 
-  # Add regularization
-  loss += reg * np.sum(W * W) 
+  # add regularization
+  loss += reg * np.sum(W * W)
   dW += 2 * reg * W
-
-  #############################################################################
-  #                          END OF YOUR CODE                                 #
-  #############################################################################
 
   return loss, dW
 
@@ -69,41 +51,22 @@ def softmax_loss_vectorized(W, X, y, reg):
   Inputs and outputs are the same as softmax_loss_naive.
   """
   # Initialize the loss and gradient to zero.
-  loss = 0.0
   dW = np.zeros_like(W)
-  num_train = X.shape[0]
+  num_train = len(X)
 
-  #############################################################################
-  # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
-  # Store the loss in loss and the gradient in dW. If you are not careful     #
-  # here, it is easy to run into numeric instability. Don't forget the        #
-  # regularization!                                                           #
-  #############################################################################
   scores = X.dot(W)
-  max_scores = np.max(scores, axis=1)[:, np.newaxis]
-  scores -= max_scores
-  correct_class_scores = scores[np.arange(len(scores)), y][:, np.newaxis]
+  scores -= np.max(scores, axis=1)[ :, np.newaxis]
   exp_scores = np.exp(scores)
-  sum_exp_scores = np.sum(exp_scores, axis=1)
-  loss = -correct_class_scores + np.log(sum_exp_scores[:, np.newaxis])
-
-  # Computethe gradient in vectorized format
-  exp_scores[np.arange(len(exp_scores)), y] = -sum_exp_scores
-  dW = X.T.dot(exp_scores * 1/ sum_exp_scores[:, np.newaxis])
-
-
-  # Average the loss and gradient over the traiing data
+  loss = -scores[np.arange(len(scores)), y] + np.log(np.sum(exp_scores, axis=1))
   loss = np.sum(loss) / num_train
-  dW /= num_train
+  # compute gradient
+  exp_scores /= np.sum(exp_scores, axis=1)[ :, np.newaxis]
+  exp_scores[np.arange(len(exp_scores)), y] -= 1
+  dW = X.T.dot(exp_scores) / num_train
 
   # Add regularization
-  loss += reg * np.sum(W * W) 
+  loss += reg * np.sum(W * W)
   dW += 2 * reg * W
-
-
-  #############################################################################
-  #                          END OF YOUR CODE                                 #
-  #############################################################################
 
   return loss, dW
 
